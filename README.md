@@ -19,17 +19,17 @@
 
 目前的认知告诉我们，二维码是以正方形的形式存在，以类似于二进制的方式存储数据。
 
-在Zxing中，使用```BitMatrix```来描述一个二维码，在其内部有一个存储```boolean```值的矩形数组。这个类很好的使用代码描述了二维码。
+在Zxing中，使用```BitMatrix```来描述一个二维码，在其内部存储一个看似```boolean```值的矩阵数组。这个类很好的使用代码描述了二维码。
 
 ### 转换成图片
 
-只是用zxing-core包，那么我们最多可以得到一个```BitMatrix```, 我们想要看见二维码，则还需要将其转换成一个图片，而图片在不同的平台则是以不同的形式存在的。如png文件, jpg文件、Android的Bitmap, Java SE的 BufferedImage. 
+只使用zxing-core包，那么我们最多可以得到一个```BitMatrix```, 我们想要看见二维码，则还需要将其转换成一个图片，而图片在不同的平台则是以不同的形式存在的。如png文件, jpg文件、Android的Bitmap, Java SE的 BufferedImage. 
 
 具体转换成图片的方式，不同平台有不同的方法，后面会详细总结，这里只是尽快明确一下概念。
 
 ### 生成二维码介绍
 
-zxing将生成二维码的方式抽象成了一个类```com.google.zxing.Writer```, 这个类不仅仅生成二维码，还可以生成条形码、
+zxing将生成二维码的方式抽象成了一个类```com.google.zxing.Writer```, 这个类不仅仅生成二维码，还可以生成条形码等其他编码
 
 | Writer |
 |---|
@@ -59,7 +59,7 @@ zxing将生成二维码的方式抽象成了一个类```com.google.zxing.Writer`
 | PDF417_COMPACT | 指定是否使用PDF417紧凑模式（具体含义不懂）类型```Boolean``` |
 | PDF417_COMPACTION | 指定PDF417的紧凑类型 |
 | PDF417_DIMENSIONS | 指定PDF417的最大最小行列数 |
-| AZTEC_LAYERS | aztec编码，相关，不理解 |
+| AZTEC_LAYERS | aztec编码相关，不理解 |
 | QR_VERSION | 指定二维码版本，版本越高越复杂，反而不容易解析 |
 
 从上面的参数表格可以看出，适用于二维码的有：```ERROR_CORRECTION```, ```CHARACTER_SET```, ```MARGIN```, ```QR_VERSION```. 
@@ -123,7 +123,7 @@ public static BufferedImage toBufferedImage(BitMatrix matrix, MatrixToImageConfi
 
 在官方提供的zxing-javase包中实际上有将```BitMatrix```转换成图片文件的方法，不过实际上是先将```BitMatrix```转换成```BufferedImage```, 然后将其转换成图片文件。
 
-转换方法
+转换方法(```javax.imageio.ImageIO```)
 ```Java
 public static boolean write(RenderedImage im, String formatName, File output) throws IOException
 ```
@@ -150,17 +150,18 @@ public static void writeToPath(BitMatrix matrix, String format, Path file, Matri
 Bitmap.compress(CompressFormat format, int quality, OutputStream stream)
 ```
 
-其中的参数就不再解释了，主要讨论将```BitMatrix```转换成```Bitmap```的问题。
+其中的参数就不再解释了，主要需要讨论的是将```BitMatrix```转换成```Bitmap```。
 
-在讨论```BitMatrix```与```Bitmap```的转换之前，想先讨论一下两者的内部结构。
+在讨论```BitMatrix```与```Bitmap```的转换之前，先研究一下两者的内部结构。
 
 ##### BitMatrix
 
-```BitMatrix```表示位数组的二维矩阵。而它内部则是使用一维```int```数组来实现的，一个```int```数组有32位。不过比较特别的是，每一行都是由一个新的```int```值开始，如果一行不是32的倍数，一行最后一个```int```值中没有用到的位没有任何值。另外位是从```int```值的最小位还是排的，这是为了和```com.google.zxing.common.BitArray```更好的转换。
+```BitMatrix```表示位数组的二维矩阵。而它内部则是使用一维```int```数组来实现的，一个```int```数组有32位。不过比较特别的是，每一行都是由一个新的```int```值开始，如果列数不是32的倍数，一行最后一个```int```值中有没有用到的位。另外位是从```int```值的最小位开始排的，这是为了和```com.google.zxing.common.BitArray```更好的转换。
 
-不关心其内部实现，在其抽象的数据结构中，x表示列数，y表示行数，可以通过```BitMatrix.get(int x, int y)```获取该位置是否为1. 
+不关心其内部实现，在其抽象的数据结构中，x表示列数，y表示行数，可以通过```BitMatrix.get(int x, int y)```获取该位置是否为1(开). 
 
 ```BitMatrix```中几个可能应该熟悉方法如下
+
 | 方法 | 说明 |
 |---|:---|
 | public boolean get(int x, int y) | 获取(x, y)的位值，true表示黑色 |
@@ -176,6 +177,7 @@ Bitmap.compress(CompressFormat format, int quality, OutputStream stream)
 ```Bitmap```内部是使用C实现的，所以不能直观看到，不过可以猜测到，其内部应该使用的是一维```int```数组来实现的，一个```int```值就表示一个点的颜色。
 
 下面列举一些可能用到的一些方法
+
 | 方法 | 说明 |
 |---|:---|
 | public static Bitmap createBitmap(int width, int height, Config config) | 构造方法，创建一个透明的Bitmap |
@@ -189,6 +191,7 @@ Bitmap.compress(CompressFormat format, int quality, OutputStream stream)
 从前面的理解，我们可以看出，实际上```BitMatrix```转换成```Bitmap```就是将其所代表的点的开关用颜色来表示。默认情况下，我们习惯使用黑色代表开，白色代表关。我们需要创建一个和```BitMatrix```长宽“相等”的```Bitmap```, 在转换过程中，我们发现```BitMatrix```某一个位置是开，我们则设置```Bitmap```相应位置的颜色为开的颜色，反之同理。（当然我们也可以根据特殊需求修改其中的颜色）
 
 代码示例
+
 ```Java
 private Bitmap bitMatrixToBitmap(BitMatrix bitMatrix) {
     final int width = bitMatrix.getWidth();
@@ -206,7 +209,9 @@ private Bitmap bitMatrixToBitmap(BitMatrix bitMatrix) {
     return bitmap;
 }
 ```
+
 上面分为三步：
+
 1. 创建一个一维```int```数组存放转换后的颜色值
 2. 根据```BitMatrix```中的位值设置相应像素点的颜色值
 3. 创建一个“相同”大小的```Bitmap```, 使用代表颜色的数组为其赋值
