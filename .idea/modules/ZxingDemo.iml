@@ -8,18 +8,5 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module-library">
-      <library>
-        <CLASSES>
-          <root url="file://$MODULE_DIR$/../../libs" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES>
-          <root url="jar://$USER_HOME$/.ideaLibSources/javase-3.3.0-sources.jar!/" />
-          <root url="jar://$USER_HOME$/.ideaLibSources/core-3.3.0-sources.jar!/" />
-        </SOURCES>
-        <jarDirectory url="file://$MODULE_DIR$/../../libs" recursive="false" />
-      </library>
-    </orderEntry>
   </component>
 </module>

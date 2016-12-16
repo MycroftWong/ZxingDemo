@@ -15,9 +15,7 @@
           <root url="file://$MODULE_DIR$/../../libs" />
         </CLASSES>
         <JAVADOC />
-        <SOURCES>
-          <root url="jar://$USER_HOME$/.ideaLibSources/core-3.3.0-sources.jar!/" />
-        </SOURCES>
+        <SOURCES />
         <jarDirectory url="file://$MODULE_DIR$/../../libs" recursive="false" />
       </library>
     </orderEntry>

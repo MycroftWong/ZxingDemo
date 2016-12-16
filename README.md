@@ -15,9 +15,7 @@
 ## Zxing介绍
 
 摘自百度百科
-```text
-二维条码/二维码（2-dimensional bar code）是用某种特定的几何图形按一定规律在平面（二维方向上）分布的黑白相间的图形记录数据符号信息的；在代码编制上巧妙地利用构成计算机内部逻辑基础的“0”、“1”比特流的概念，使用若干个与二进制相对应的几何形体来表示文字数值信息，通过图象输入设备或光电扫描设备自动识读以实现信息自动处理：它具有条码技术的一些共性：每种码制有其特定的字符集；每个字符占有一定的宽度；具有一定的校验功能等。同时还具有对不同行的信息自动识别功能、及处理图形旋转变化点。
-```
+>二维条码/二维码（2-dimensional bar code）是用某种特定的几何图形按一定规律在平面（二维方向上）分布的黑白相间的图形记录数据符号信息的；在代码编制上巧妙地利用构成计算机内部逻辑基础的“0”、“1”比特流的概念，使用若干个与二进制相对应的几何形体来表示文字数值信息，通过图象输入设备或光电扫描设备自动识读以实现信息自动处理：它具有条码技术的一些共性：每种码制有其特定的字符集；每个字符占有一定的宽度；具有一定的校验功能等。同时还具有对不同行的信息自动识别功能、及处理图形旋转变化点。
 
 目前的认知告诉我们，二维码是以正方形的形式存在，以类似于二进制的方式存储数据。
 
@@ -154,8 +152,87 @@ Bitmap.compress(CompressFormat format, int quality, OutputStream stream)
 
 其中的参数就不再解释了，主要讨论将```BitMatrix```转换成```Bitmap```的问题。
 
+在讨论```BitMatrix```与```Bitmap```的转换之前，想先讨论一下两者的内部结构。
+
+##### BitMatrix
+
+```BitMatrix```表示位数组的二维矩阵。而它内部则是使用一维```int```数组来实现的，一个```int```数组有32位。不过比较特别的是，每一行都是由一个新的```int```值开始，如果一行不是32的倍数，一行最后一个```int```值中没有用到的位没有任何值。另外位是从```int```值的最小位还是排的，这是为了和```com.google.zxing.common.BitArray```更好的转换。
+
+不关心其内部实现，在其抽象的数据结构中，x表示列数，y表示行数，可以通过```BitMatrix.get(int x, int y)```获取该位置是否为1. 
+
+```BitMatrix```中几个可能应该熟悉方法如下
+| 方法 | 说明 |
+|---|:---|
+| public boolean get(int x, int y) | 获取(x, y)的位值，true表示黑色 |
+| public void set(int x, int y) | 设置(x, y)的位值为true |
+| public void unset(int x, int y) | 设置(x, y)的位值为false |
+| public void flip(int x, int y) | 对(x, y)的位值做非运算 |
+| public BitMatrix(int width, int height) | 构造函数，指定宽高 |
+
+另外说明一下```com.google.zxing.common.BitArray```这个类，这个类数据结构和```BitMatrix```的一行是一样的，使用```int```数组来表示一维位数组，同样的，最后一位```int```值可能有部分位没有用到。也同样的，位事从```int```值的最小位开始排列。
+
+##### Bitmap
+
+```Bitmap```内部是使用C实现的，所以不能直观看到，不过可以猜测到，其内部应该使用的是一维```int```数组来实现的，一个```int```值就表示一个点的颜色。
+
+下面列举一些可能用到的一些方法
+| 方法 | 说明 |
+|---|:---|
+| public static Bitmap createBitmap(int width, int height, Config config) | 构造方法，创建一个透明的Bitmap |
+| public void setPixels(@ColorInt int[] pixels, int offset, int stride, int x, int y, int width, int height) | 使用数组中的颜色替换Bitmap的像素点的颜色 |
+| public void setPixel(int x, int y, @ColorInt int color) | 设置Bitmap中指定像素点的颜色值 |
+
+只列举上面几个方法是因为跟我们的理解和使用比较密切。
+
+#### BitMatrix转换成Bitmap
+
+从前面的理解，我们可以看出，实际上```BitMatrix```转换成```Bitmap```就是将其所代表的点的开关用颜色来表示。默认情况下，我们习惯使用黑色代表开，白色代表关。我们需要创建一个和```BitMatrix```长宽“相等”的```Bitmap```, 在转换过程中，我们发现```BitMatrix```某一个位置是开，我们则设置```Bitmap```相应位置的颜色为开的颜色，反之同理。（当然我们也可以根据特殊需求修改其中的颜色）
+
+代码示例
+```Java
+private Bitmap bitMatrixToBitmap(BitMatrix bitMatrix) {
+    final int width = bitMatrix.getWidth();
+    final int height = bitMatrix.getHeight();
+
+    final int[] pixels = new int[width * height];
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            pixels[y * width + x] = bitMatrix.get(x, y) ? 0xFF000000 : 0xFFFFFFFF;
+        }
+    }
+    Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+    bitmap.setPixels(pixels, 0, width, 0, 0, width, height);
+
+    return bitmap;
+}
+```
+上面分为三步：
+1. 创建一个一维```int```数组存放转换后的颜色值
+2. 根据```BitMatrix```中的位值设置相应像素点的颜色值
+3. 创建一个“相同”大小的```Bitmap```, 使用代表颜色的数组为其赋值
+
+注意：颜色值中前两位默认为00, 这样表示透明，所以一般都是要设置为FF, 不然在调试过程中就比较坑。
+
+关于```Bitmap.setPixels(@ColorInt int[] pixels, int offset, int stride, int x, int y, int width, int height)```这个方法其中的参数比较多，详细说明一下
+
+| 参数 | 说明 |
+|---|:---|
+| int[] pixels | 像素点颜色数组 |
+| int offset | 从偏移颜色数组第一个像素多少开始读起 |
+| int stride | 每隔多少个点跳行，通常和宽度相同，不过也可以更大，设置为负值 |
+| int x | Bitmap接收值的x轴起点 |
+| int y | Bitmap接收值的y轴起点 |
+| int width | 每一行复制多少颜色点 |
+| int height | 一个复制多少行 |
+
+因为考虑到像素点颜色数组和```Bitmap```大小本身存在不同所以才有这些参数，实际上，像素点颜色数组的大小和```Bitmap```的大小是相同的。那么其中的参数分别是：像素点颜色数组、0表示不偏移，直接从第一位复制、```Bitmap```宽度，复制完刚好一行则开始从下一个点开始进行复制下一行、0表示从左上角开始复制、0表示从左上角开始复制、```Bitmap```的宽度表示刚好复制到整个```Bitmap```, ```Bitmap```的宽度表示刚好复制到整个```Bitmap```
+
+
+
 
 
 ## 时间线
 
 1. 2016年12月16日17:57:05 总结到Java SE平台
+
+2. 2016年12月17日00:49:12 总结到Android平台
