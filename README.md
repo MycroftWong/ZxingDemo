@@ -144,6 +144,18 @@ public static void writeToPath(BitMatrix matrix, String format, Path file, Matri
 
 #### Android 平台
 
+类似的，在Android中也是先将```BitMatrix```转换成```Bitmap```, 然后再写入到文件中。
+
+```Bitmap```写入到文件中则非常熟悉了，如下所示：
+
+```Java
+Bitmap.compress(CompressFormat format, int quality, OutputStream stream)
+```
+
+其中的参数就不再解释了，主要讨论将```BitMatrix```转换成```Bitmap```的问题。
+
+
+
 ## 时间线
 
 1. 2016年12月16日17:57:05 总结到Java SE平台
