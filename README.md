@@ -29,7 +29,7 @@
 
 ### 生成二维码介绍
 
-zxing将生成二维码的方式抽象成了一个类```com.google.zxing.Writer```, 这个类不仅仅生成二维码，还可以生成条形码等其他编码
+zxing将生成图形编码的方式抽象成了一个类```com.google.zxing.Writer```, 在实现类中不仅仅生成二维码，还可以生成条形码等其他图形编码
 
 | Writer |
 |---|
@@ -38,7 +38,7 @@ zxing将生成二维码的方式抽象成了一个类```com.google.zxing.Writer`
 
 如上所示，```Writer```共有两个方法，都是用于生成二维码。方法参数说明如下
 
-| 方法 | 说明 |
+| 参数 | 说明 |
 |---|:---|
 | String contents | 编码的内容 |
 | BarcodeFormat format | 编码的方式（二维码、条形码...） |
@@ -232,12 +232,175 @@ private Bitmap bitMatrixToBitmap(BitMatrix bitMatrix) {
 
 因为考虑到像素点颜色数组和```Bitmap```大小本身存在不同所以才有这些参数，实际上，像素点颜色数组的大小和```Bitmap```的大小是相同的。那么其中的参数分别是：像素点颜色数组、0表示不偏移，直接从第一位复制、```Bitmap```宽度，复制完刚好一行则开始从下一个点开始进行复制下一行、0表示从左上角开始复制、0表示从左上角开始复制、```Bitmap```的宽度表示刚好复制到整个```Bitmap```, ```Bitmap```的宽度表示刚好复制到整个```Bitmap```
 
+### 解析二维码介绍
 
+zxing将解析图形编码的方式抽象成了一个接口```com.google.zxing.Reader```, 实现类中可以解析多种图形编码。
 
+| Reader |
+|---|
+| Result decode(BinaryBitmap image) throws NotFoundException, ChecksumException, FormatException |
+| Result decode(BinaryBitmap image, Map<DecodeHintType,?> hints) throws NotFoundException, ChecksumException, FormatException |
+| void reset() |
 
+```Reader```共有三个方法，```decode```方法用于解析图形编码，返回一个解析结果；```reset```将重置解析器的状态，便于复用。
+
+关于```encode```的参数和返回值：
+
+| 参数 | 说明 |
+|---|---|
+| BinaryBitmap image | 被解析的图片 |
+| Map<DecodeHintType, ?> hints | 帮助解析的一些提示信息 |
+| Result | 解析的结果 |
+
+下面是最简单的解析二维码的代码
+
+```Java
+/**
+ * 解析二维码
+ *
+ * @param binaryBitmap 被解析的图形对象
+ * @return 解析的结果
+ */
+private String decode(BinaryBitmap binaryBitmap) {
+    try {
+        Map<DecodeHintType, Object> hints = new HashMap<>();
+        hints.put(DecodeHintType.CHARACTER_SET, "utf-8");
+        hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
+        hints.put(DecodeHintType.POSSIBLE_FORMATS, BarcodeFormat.QR_CODE);
+
+        Result result = new QRCodeReader().decode(binaryBitmap, hints);
+
+        return result.getText();
+    } catch (NotFoundException | ChecksumException | FormatException e) {
+        e.printStackTrace();
+        return null;
+    }
+}
+```
+
+解析时，我们需要一个```BinaryBitmap```, 其只有一个构造器，接受一个```com.google.zxing.Binarizer```对象，所以无论是在哪个平台，无论图片是以什么样的形式存在的（文件、内存、Bitmap、BufferedImage），都需要提供一个```Binarizer```对象，将图片转换成一个```BinaryBitmap```.
+
+##### BinaryBitmap
+
+这是在ZXing中用于代表一个位数据的核心位图类。```Reader```对象接受一个```BinaryBitmap```并试图对它进行解码。
+
+这个类使用了```final```修饰，只有一个接受```Binarizer```对象的构造器，并在其内部实质上也只有一个```Binarizer```对象，其所有方法都是代理到```Binarizer```或是```Binarizer```构造的一个```BitMatrix```对象。
+
+##### Binarizer
+
+这个类使用了```abstract```修饰。
+
+这个类在层次上提供了一组方法用于将亮度数据(luminance data)转换成一个位数据。它允许算法多种多样，例如允许服务器使用非常耗资源的阈值计算，允许手机使用比较快的算法。它也允许实现类多样化，例如安卓上使用JNI，其他平台使用备选的版本。
+
+摘自百度知道
+> PS解释：“阈值”命令将灰度或彩色图像转换为高对比度的黑白图像。您可以指定某个色阶作为阈值。所有比阈值亮的像素转换为白色；而所有比阈值暗的像素转换为黑色。“阈值”命令对确定图像的最亮和最暗区域很有用。
+>
+> 我的解释，就是拿黑白2色去阐述你的图片，是可调节的。
+
+单词Binarizer的翻译：二值化。通常在图像处理上使用比较多，可以和阈值计算处理看做类似的概念，因为对于目前的图形编码来说，一张图片只认为有两种颜色，表示开关。所以需要将一张彩色的图片转换成一张黑白色的图。这个过程就成为二值化(Binarizer). 
+
+这个类只有一个使用```protected```修饰的构造器，这个构造器只接受一个```LuminanceSource```对象。其所有的方法都是抽象的。
+
+```Binarizer```有两个子类，```com.google.zxing.common.GlobalHistogramBinarizer```和```com.google.zxing.common.HybridBinarizer```.
+
+```GlobalHistogramBinarizer```, 全局直方图二值化。这个```Binarizer```的实现类使用了早期的ZXing全局直方图方法。它适合没有足够CPU和内存的低端手机来使用本地阈值算法。但它选择了全部的黑点来计算，因此不能处理阴影和渐变两种情况。快速的手机设备和所有的桌面应用应该使用```HybridBinarizer```.
+
+```HybridBinarizer```, 混合型二值化。这个```Binarizer```的实现类使用了本地阈值算法，比```GlobalHistogramBinarizer```要慢，相对而言也比较精准。它专门为以白色为背景的连续黑色块二维码图像解析而设计，也更适合用来解析具有严重阴影和渐变的二维码图像。（部分参考文章[zxing扫描二维码和识别图片二维码及其优化策略](http://iluhcm.com/2016/01/08/scan-qr-code-and-recognize-it-from-picture-fastly-using-zxing/?utm_source=tuicool&utm_medium=referral)）
+
+两者的大概意思是```GlobalHistogramBinarizer```适合CPU和内存比较差的低端手机，解析效果没有```HybridBinarizer```好，但是```HybridBinarizer```耗费的资源更多，解析速度也稍慢，不过对于目前市面上的手机CPU和内存都不会太差，所以大可以直接使用```HybridBinarizer```. 另外，```HybridBinarizer```继承自```GlobalHistogramBinarizer```, 两者都只有一个接受一个```LuminanceSource```的构造器。
+
+##### LuminanceSource
+
+这个类层次的目的是抽象在不同平台上的位图，实现成一个标准的接口用于请求灰度的亮度值。这个接口值提供不可改变的方法；因此剪切或者旋转时将创造一个副本（不复用）。这样是为了保证一个```Reader```不能修改原亮度数据，而且让他对于在处理链的其他```Reader```保持一个未知的状态。
+
+对于这个类的作用还不太清楚，不过我们可以知道的是，我们需要将在不同平台的图片对象转换成```LuminanceSource```对象，这样就可以交给Zxing来进行解析了。
+
+在zxing-core包中，有两个```LuminanceSource```的实现类，```com.google.zxing.RGBLuminanceSource```和```com.google.zxing.PlanarYUVLuminanceSource```. 在zxing-javase包中，有一个实现类```com.google.zxing.client.j2se.BufferedImageLuminanceSource```.
+
+```RGBLuminanceSource```, 这个类用于帮助解析图片文件，这个图片文件是从一个ARGB的像素数组转换成一个RGB数据的。但是不支持旋转。
+
+```PlanarYUVLuminanceSource```, 这个对象继承自```LuminanceSource```, 多从相机设备中返回的YUV数据数组转换得到，可以选择性的将YUV的完整数据剪切其中一部分用于解析（具体参数可以查看其构造函数）。这样可以用于取出边界外多余的像素用于加快解析速度。
+
+#### Java SE平台
+
+既然官方在zxing-core包中提供了```BufferedImageLuminanceSource```, 我们直接使用即可。它接受一个```BufferedImage```作为构造器参数，也有一个重载构造器，用于取得```BufferedImage```的部分来进行解析。
+
+下面代码展示解析一个图片文件上的二维码
+
+```Java
+/**
+ * 解析图片文件上的二维码
+ *
+ * @param imageFile 图片文件
+ * @return 解析的结果，null表示解析失败
+ */
+private String decode(File imageFile) {
+    try {
+        BufferedImage image = ImageIO.read(imageFile);
+        LuminanceSource luminanceSource = new BufferedImageLuminanceSource(image);
+        Binarizer binarizer = new HybridBinarizer(luminanceSource);
+
+        BinaryBitmap binaryBitmap = new BinaryBitmap(binarizer);
+
+        Map<DecodeHintType, Object> hints = new HashMap<>();
+        hints.put(DecodeHintType.CHARACTER_SET, "utf-8");
+        hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
+        hints.put(DecodeHintType.POSSIBLE_FORMATS, BarcodeFormat.QR_CODE);
+
+        Result result = new QRCodeReader().decode(binaryBitmap, hints);
+
+        return result.getText();
+    } catch (Exception e) {
+        e.printStackTrace();
+        return null;
+    }
+}
+```
+
+#### Android 平台
+
+官方包中并没有一个所谓的```BitmapLuminanceSource```, 而网上也有定义这样一个类，但是实现效果并不好，多是使用```Bitmap```构造一个```RGBLuminanceSource```. 下面是演示代码
+
+```Java
+/**
+ * 解析Bitmap中的二维码
+ *
+ * @param bitmap
+ * @return 解析结果，null表示解析失败
+ */
+private String decode(Bitmap bitmap) {
+    int width = bitmap.getWidth();
+    int height = bitmap.getHeight();
+    final int[] pixels = new int[width * height];
+    bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+    RGBLuminanceSource luminanceSource = new RGBLuminanceSource(width, height, pixels);
+    BinaryBitmap binaryBitmap = new BinaryBitmap(new HybridBinarizer(luminanceSource));
+
+    try {
+        final Map<DecodeHintType, Object> hints = new HashMap<>();
+        hints.put(DecodeHintType.CHARACTER_SET, "utf-8");
+        hints.put(DecodeHintType.POSSIBLE_FORMATS, BarcodeFormat.QR_CODE);
+        hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
+        Result result = new QRCodeReader().decode(binaryBitmap, hints);
+
+        return result.toString();
+    } catch (Exception e) {
+        e.printStackTrace();
+        return null;
+    }
+}
+```
+
+不过使用相机扫描解析二维码却不同，在Android API 21以下使用```android.hardware.Camera```来进行扫描时，通常在预览状态下得到的是一个```byte```数组，这时，就比较容易用来构造一个```com.google.zxing.PlanarYUVLuminanceSource```, 具体如何使用，在讨论到相机时会再说明。
 
 ## 时间线
 
 1. 2016年12月16日17:57:05 总结到Java SE平台
 
 2. 2016年12月17日00:49:12 总结到Android平台
+
+3. 2016年12月18日00:09:50 总结如何解析图片中的二维码
+
+## 参考
+
+[zxing扫描二维码和识别图片二维码及其优化策略](http://iluhcm.com/2016/01/08/scan-qr-code-and-recognize-it-from-picture-fastly-using-zxing/?utm_source=tuicool&utm_medium=referral)

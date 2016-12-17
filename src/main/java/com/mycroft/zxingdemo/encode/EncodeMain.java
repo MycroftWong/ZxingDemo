@@ -42,7 +42,7 @@ public class EncodeMain {
 
     public static void main(String[] args) throws WriterException, IOException {
         // 生成二维码的内容
-        final String text = "Hello world!";
+        final String text = "Hello world! 你好，世界！";
 
         // 使用 MultiFormatWriter 构造 BitMatrix 对象,
 //        final BitMatrix bitMatrix = new MultiFormatWriter().encode(text, BarcodeFormat.QR_CODE, DEFAULT_WIDTH, DEFAULT_HEIGHT, codeHints);
@@ -55,7 +55,7 @@ public class EncodeMain {
                 new FileOutputStream("C:\\Users\\Mycroft\\Pictures\\hello.png"),
                 new MatrixToImageConfig(Color.RED.getRGB(), Color.GREEN.getRGB()));
 
-        BufferedImage bufferedImage = MatrixToImageWriter.toBufferedImage(bitMatrix, new MatrixToImageConfig(Color.BLACK.getRGB(), Color.WHITE.getRGB()));
+//        BufferedImage bufferedImage = MatrixToImageWriter.toBufferedImage(bitMatrix, new MatrixToImageConfig(Color.BLACK.getRGB(), Color.WHITE.getRGB()));
     }
 
     private static OutputStream getOutputStream() throws FileNotFoundException {
