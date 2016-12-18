@@ -1,4 +1,4 @@
-# ZxingDemo
+# ZXing应用详解
 
 现在的项目中需要加上二维码扫描，虽然使用了第三方库，也还好用，但是对这部分只是还是比较感兴趣，所以研究一下。
 
@@ -12,14 +12,14 @@
 
 首先明确一个概念：二维码图片存在的形式非常多，文件、纸张、手机、电脑屏幕。在不同的平台上存在的形式是不一样的。
 
-## Zxing介绍
+## ZXing介绍
 
 摘自百度百科
 >二维条码/二维码（2-dimensional bar code）是用某种特定的几何图形按一定规律在平面（二维方向上）分布的黑白相间的图形记录数据符号信息的；在代码编制上巧妙地利用构成计算机内部逻辑基础的“0”、“1”比特流的概念，使用若干个与二进制相对应的几何形体来表示文字数值信息，通过图象输入设备或光电扫描设备自动识读以实现信息自动处理：它具有条码技术的一些共性：每种码制有其特定的字符集；每个字符占有一定的宽度；具有一定的校验功能等。同时还具有对不同行的信息自动识别功能、及处理图形旋转变化点。
 
 目前的认知告诉我们，二维码是以正方形的形式存在，以类似于二进制的方式存储数据。
 
-在Zxing中，使用```BitMatrix```来描述一个二维码，在其内部存储一个看似```boolean```值的矩阵数组。这个类很好的使用代码描述了二维码。
+在Zxing中，使用```BitMatrix```来描述一个二维码，在其内部存储一个看似```boolean```值的矩阵数组。这个类很好的抽象了二维码。
 
 ### 转换成图片
 
@@ -156,7 +156,7 @@ Bitmap.compress(CompressFormat format, int quality, OutputStream stream)
 
 ##### BitMatrix
 
-```BitMatrix```表示位数组的二维矩阵。而它内部则是使用一维```int```数组来实现的，一个```int```数组有32位。不过比较特别的是，每一行都是由一个新的```int```值开始，如果列数不是32的倍数，一行最后一个```int```值中有没有用到的位。另外位是从```int```值的最小位开始排的，这是为了和```com.google.zxing.common.BitArray```更好的转换。
+翻译：```BitMatrix```表示位数组的二维矩阵。而它内部则是使用一维```int```数组来实现的，一个```int```数组有32位。不过比较特别的是，每一行都是由一个新的```int```值开始，如果列数不是32的倍数，一行最后一个```int```值中有没有用到的位。另外位是从```int```值的最小位开始排的，这是为了和```com.google.zxing.common.BitArray```更好的转换。
 
 不关心其内部实现，在其抽象的数据结构中，x表示列数，y表示行数，可以通过```BitMatrix.get(int x, int y)```获取该位置是否为1(开). 
 
@@ -170,7 +170,7 @@ Bitmap.compress(CompressFormat format, int quality, OutputStream stream)
 | public void flip(int x, int y) | 对(x, y)的位值做非运算 |
 | public BitMatrix(int width, int height) | 构造函数，指定宽高 |
 
-另外说明一下```com.google.zxing.common.BitArray```这个类，这个类数据结构和```BitMatrix```的一行是一样的，使用```int```数组来表示一维位数组，同样的，最后一位```int```值可能有部分位没有用到。也同样的，位事从```int```值的最小位开始排列。
+另外说明一下```com.google.zxing.common.BitArray```这个类，这个类数据结构和```BitMatrix```的一行是一样的，使用```int```数组来表示一维位数组，同样的，最后一位```int```值可能有部分位没有用到。也同样的，位是从```int```值的最小位开始排列。
 
 ##### Bitmap
 
@@ -249,8 +249,26 @@ zxing将解析图形编码的方式抽象成了一个接口```com.google.zxing.R
 | 参数 | 说明 |
 |---|---|
 | BinaryBitmap image | 被解析的图片 |
-| Map<DecodeHintType, ?> hints | 帮助解析的一些提示信息 |
+| Map<DecodeHintType, ?> hints | 帮助解析的一些额外的参数 |
 | Result | 解析的结果 |
+
+关于解码时额外的参数
+
+| 参数 | 说明 |
+|---|:---|
+| OTHER | 未指定作用，应用自定义，Object类型 |
+| PURE_BARCODE | Boolean类型，指定图片是一个纯粹的二维码 |
+| POSSIBLE_FORMATS | 可能的编码格式，List类型 |
+| TRY_HARDER | 花更多的时间用于寻找图上的编码，优化准确性，但不优化速度，Boolean类型 |
+| CHARACTER_SET | 编码字符集，通常指定UTF-8 |
+| ALLOWED_LENGTHS | 允许的编码数据长度 - 拒绝多余的数据。不懂这是什么，int[]类型 |
+| ASSUME_CODE_39_CHECK_DIGIT | CODE 39 使用，不关心 |
+| ASSUME_GS1 | 假设使用GS1编码来解析，不关心 |
+| RETURN_CODABAR_START_END | CODABAR编码使用，不关心 |
+| NEED_RESULT_POINT_CALLBACK | 当解析到可能的结束点时进行回调 |
+| ALLOWED_EAN_EXTENSIONS | 允许EAN或UPC编码有额外的长度，不关心 |
+
+从上面的参数表格可以看出，适用于二维码的有：PURE_BARCODE, POSSIBLE_FORMATS, TRY_HARDER, CHARACTER_SET. 不过一般不会使用PURE_BARCODE, POSSIBLE_FORMATS设置为```BarcodeFormat.QR_CODE```, CHARACTER_SET设置为utf-8.
 
 下面是最简单的解析二维码的代码
 
@@ -282,7 +300,7 @@ private String decode(BinaryBitmap binaryBitmap) {
 
 ##### BinaryBitmap
 
-这是在ZXing中用于代表一个位数据的核心位图类。```Reader```对象接受一个```BinaryBitmap```并试图对它进行解码。
+翻译：这是在ZXing中用于代表一个位数据的核心位图类。```Reader```对象接受一个```BinaryBitmap```并试图对它进行解码。
 
 这个类使用了```final```修饰，只有一个接受```Binarizer```对象的构造器，并在其内部实质上也只有一个```Binarizer```对象，其所有方法都是代理到```Binarizer```或是```Binarizer```构造的一个```BitMatrix```对象。
 
@@ -290,7 +308,7 @@ private String decode(BinaryBitmap binaryBitmap) {
 
 这个类使用了```abstract```修饰。
 
-这个类在层次上提供了一组方法用于将亮度数据(luminance data)转换成一个位数据。它允许算法多种多样，例如允许服务器使用非常耗资源的阈值计算，允许手机使用比较快的算法。它也允许实现类多样化，例如安卓上使用JNI，其他平台使用备选的版本。
+翻译：这个类在层次上提供了一组方法用于将亮度数据(luminance data)转换成一个位数据。它允许算法多种多样，例如允许服务器使用非常耗资源的阈值计算，允许手机使用比较快的算法。它也允许实现类多样化，例如安卓上使用JNI，其他平台使用备选的版本。
 
 摘自百度知道
 > PS解释：“阈值”命令将灰度或彩色图像转换为高对比度的黑白图像。您可以指定某个色阶作为阈值。所有比阈值亮的像素转换为白色；而所有比阈值暗的像素转换为黑色。“阈值”命令对确定图像的最亮和最暗区域很有用。
@@ -303,15 +321,15 @@ private String decode(BinaryBitmap binaryBitmap) {
 
 ```Binarizer```有两个子类，```com.google.zxing.common.GlobalHistogramBinarizer```和```com.google.zxing.common.HybridBinarizer```.
 
-```GlobalHistogramBinarizer```, 全局直方图二值化。这个```Binarizer```的实现类使用了早期的ZXing全局直方图方法。它适合没有足够CPU和内存的低端手机来使用本地阈值算法。但它选择了全部的黑点来计算，因此不能处理阴影和渐变两种情况。快速的手机设备和所有的桌面应用应该使用```HybridBinarizer```.
+翻译：```GlobalHistogramBinarizer```, 全局直方图二值化。这个```Binarizer```的实现类使用了早期的ZXing全局直方图方法。它适合没有足够CPU和内存的低端手机来使用本地阈值算法。但它选择了全部的黑点来计算，因此不能处理阴影和渐变两种情况。快速的手机设备和所有的桌面应用应该使用```HybridBinarizer```.
 
-```HybridBinarizer```, 混合型二值化。这个```Binarizer```的实现类使用了本地阈值算法，比```GlobalHistogramBinarizer```要慢，相对而言也比较精准。它专门为以白色为背景的连续黑色块二维码图像解析而设计，也更适合用来解析具有严重阴影和渐变的二维码图像。（部分参考文章[zxing扫描二维码和识别图片二维码及其优化策略](http://iluhcm.com/2016/01/08/scan-qr-code-and-recognize-it-from-picture-fastly-using-zxing/?utm_source=tuicool&utm_medium=referral)）
+翻译：```HybridBinarizer```, 混合型二值化。这个```Binarizer```的实现类使用了本地阈值算法，比```GlobalHistogramBinarizer```要慢，相对而言也比较精准。它专门为以白色为背景的连续黑色块二维码图像解析而设计，也更适合用来解析具有严重阴影和渐变的二维码图像。（部分参考文章[zxing扫描二维码和识别图片二维码及其优化策略](http://iluhcm.com/2016/01/08/scan-qr-code-and-recognize-it-from-picture-fastly-using-zxing/?utm_source=tuicool&utm_medium=referral)）
 
 两者的大概意思是```GlobalHistogramBinarizer```适合CPU和内存比较差的低端手机，解析效果没有```HybridBinarizer```好，但是```HybridBinarizer```耗费的资源更多，解析速度也稍慢，不过对于目前市面上的手机CPU和内存都不会太差，所以大可以直接使用```HybridBinarizer```. 另外，```HybridBinarizer```继承自```GlobalHistogramBinarizer```, 两者都只有一个接受一个```LuminanceSource```的构造器。
 
 ##### LuminanceSource
 
-这个类层次的目的是抽象在不同平台上的位图，实现成一个标准的接口用于请求灰度的亮度值。这个接口值提供不可改变的方法；因此剪切或者旋转时将创造一个副本（不复用）。这样是为了保证一个```Reader```不能修改原亮度数据，而且让他对于在处理链的其他```Reader```保持一个未知的状态。
+翻译：这个类层次的目的是抽象在不同平台上的位图，实现成一个标准的接口用于请求灰度的亮度值。这个接口值提供不可改变的方法；因此剪切或者旋转时将创造一个副本（不复用）。这样是为了保证一个```Reader```不能修改原亮度数据，而且让他对于在处理链的其他```Reader```保持一个未知的状态。
 
 对于这个类的作用还不太清楚，不过我们可以知道的是，我们需要将在不同平台的图片对象转换成```LuminanceSource```对象，这样就可以交给Zxing来进行解析了。
 
@@ -393,6 +411,14 @@ private String decode(Bitmap bitmap) {
 
 不过使用相机扫描解析二维码却不同，在Android API 21以下使用```android.hardware.Camera```来进行扫描时，通常在预览状态下得到的是一个```byte```数组，这时，就比较容易用来构造一个```com.google.zxing.PlanarYUVLuminanceSource```, 具体如何使用，在讨论到相机时会再说明。
 
+## 标注
+
+Demo地址[ZxingDemo](https://github.com/MycroftWong/ZxingDemo)
+
+使用到的jar包：[core-3.3.0.jar](http://repo1.maven.org/maven2/com/google/zxing/core/3.3.0/core-3.3.0.jar
+), [javase-3.3.0.jar](http://repo1.maven.org/maven2/com/google/zxing/javase/3.3.0/javase-3.3.0.jar
+)
+
 ## 时间线
 
 1. 2016年12月16日17:57:05 总结到Java SE平台
@@ -400,6 +426,8 @@ private String decode(Bitmap bitmap) {
 2. 2016年12月17日00:49:12 总结到Android平台
 
 3. 2016年12月18日00:09:50 总结如何解析图片中的二维码
+
+4. 2016年12月18日13:56:20 修改文章一些细节
 
 ## 参考
 
